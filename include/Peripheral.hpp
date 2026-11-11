@@ -1,18 +1,20 @@
 #pragma once
-#include <stdint.h>
 
+namespace hal {
+
+/** Common lifecycle interface for hardware peripherals. */
 class Peripheral {
 public:
-    virtual void begin() = 0;
     virtual ~Peripheral() = default;
+
+    /** Write the stored configuration to the hardware registers. */
+    virtual void init() = 0;
+
+    /** Enable the peripheral using its stored configuration. */
+    virtual void enable() = 0;
+
+    /** Disable the peripheral without deleting its configuration. */
+    virtual void disable() = 0;
 };
 
-class InputPeripheral : public virtual Peripheral {
-public:
-    virtual uint16_t read() = 0;
-};
-
-class OutputPeripheral : public virtual Peripheral {
-public:
-    virtual void write(uint16_t value) = 0;
-};
+} // namespace hal

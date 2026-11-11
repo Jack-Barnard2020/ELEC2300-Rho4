@@ -1,18 +1,34 @@
 #include "Adc.hpp"
-#include "Registers.hpp"
 
-void Adc::begin() {
-    reg::DDRA &= ~(1 << channel_);          // Analogue pin is an input
-    reg::ADMUX = (1 << 6) | channel_;       // AVCC reference, selected channel
-    reg::ADCSRA = (1 << 7) | 7;             // ADC on, clock /128
+namespace hal {
+
+Adc::Adc(const AdcConfig& config) : config_(config) {}
+
+void Adc::init() {
+    uint8_t reference = 0;
+
+    if (config_.reference == AdcReference::Avcc) reference = _BV(REFS0);
+    else if (config_.reference == AdcReference::Internal1V1) reference = _BV(REFS1) | _BV(REFS0);
+
+    config_.channel &= 0x07;
+    ADMUX = reference | (config_.leftAdjust ? _BV(ADLAR) : 0) | config_.channel;
+    DIDR0 |= _BV(config_.channel);
+    ADCSRA = _BV(ADEN) | static_cast<uint8_t>(config_.prescaler);
+}
+
+void Adc::enable() { ADCSRA |= _BV(ADEN); }
+void Adc::disable() { ADCSRA &= static_cast<uint8_t>(~_BV(ADEN)); }
+
+void Adc::selectChannel(uint8_t channel) {
+    config_.channel = channel & 0x07;
+    ADMUX = (ADMUX & 0xF0) | config_.channel;
+    DIDR0 |= _BV(config_.channel);
 }
 
 uint16_t Adc::read() {
-    reg::ADMUX = (reg::ADMUX & 0xF8) | channel_;
-    reg::ADCSRA |= (1 << 6);                // Start conversion
-#ifndef HAL_TEST
-    while (reg::ADCSRA & (1 << 6)) {}
-#endif
-    const uint8_t low = reg::ADCL;           // Low byte must be read first
-    return low | (uint16_t(reg::ADCH) << 8);
+    ADCSRA |= _BV(ADSC);
+    while (ADCSRA & _BV(ADSC)) {}
+    return ADC;
 }
+
+} // namespace hal
